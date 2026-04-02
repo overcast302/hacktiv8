@@ -23,6 +23,7 @@ if ($model && $build) {
 
     if (file_exists($filePath)) {
         header('Content-Description: File Transfer');
+        header('Content-Encoding: identity');
         header('Content-Type: application/xml');
         header('Content-Disposition: attachment; filename="patched.plist"');
         header('Content-Length: ' . filesize($filePath));
