@@ -6,7 +6,7 @@ import tempfile
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QVBoxLayout, QPushButton, QLabel, QMessageBox
+    QVBoxLayout, QPushButton, QLabel, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 
@@ -15,7 +15,7 @@ from pymobiledevice3.services.afc import AfcService
 from pymobiledevice3.services.diagnostics import DiagnosticsService
 
 
-BACKEND_URL = 'http://overcast302.dev/hacktiv8/server.php'
+BACKEND_URL = 'http://overcast302.dev/hacktiv8/'
 
 SUPPORTED = {
     'iPhone4,1': {'9.3.5', '9.3.6'},
@@ -76,6 +76,10 @@ class ActivationThread(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
 
+    def __init__(self, write_ic_info=False):
+        super().__init__()
+        self.write_ic_info = write_ic_info
+
     def wait_for_device(self, timeout=160):
         deadline = time.monotonic() + timeout
 
@@ -119,21 +123,47 @@ class ActivationThread(QThread):
                 self.success.emit('Device is already activated')
                 return
 
+            version_tuple = tuple(int(x) for x in values.get('ProductVersion').split('.'))
             sql_path = resource_path('payload.sql')
-            if tuple(int(x) for x in values.get('ProductVersion').split('.')) >= (10, 3):
-                payload_db = build_db_from_sql(sql_path, BACKEND_URL, '/private/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist')
+
+            if version_tuple >= (10, 3):
+                gestalt_payload = build_db_from_sql(
+                    sql_path,
+                    BACKEND_URL + 'server.php',
+                    '/private/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist'
+                )
             else:
-                payload_db = build_db_from_sql(sql_path, BACKEND_URL, '/private/var/mobile/Library/Caches/com.apple.MobileGestalt.plist')
+                gestalt_payload = build_db_from_sql(
+                    sql_path,
+                    BACKEND_URL + 'server.php',
+                    '/private/var/mobile/Library/Caches/com.apple.MobileGestalt.plist'
+                )
+
+            ic_info_payload = None
+            if self.write_ic_info and version_tuple >= (10, 0):
+                ucid = values.get('UniqueChipID')
+                udid = values.get('UniqueDeviceID')
+                ic_url = f'{BACKEND_URL}icinfo.php?ucid={ucid}&udid={udid}'
+                ic_info_payload = build_db_from_sql(
+                    sql_path,
+                    ic_url,
+                    '/private/var/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv'
+                )
 
             self.status.emit('Activating device...')
 
             for attempt in range(5):
-                lockdown = self.push_payload(lockdown, payload_db)
+                lockdown = self.push_payload(lockdown, gestalt_payload)
 
                 delay = 15 + attempt * 5
                 time.sleep(delay)
 
                 if self.should_hactivate(lockdown):
+                    if ic_info_payload is not None:
+                        self.status.emit('Writing IC-Info...')
+                        lockdown = self.push_payload(lockdown, ic_info_payload)
+                        time.sleep(10)
+
                     DiagnosticsService(lockdown=lockdown).restart()
                     self.success.emit('Done!')
                     return
@@ -157,15 +187,21 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle('hacktiv8 v1.1.0')
+        self.setWindowTitle('hacktiv8 v1.1.1-testing')
         self.setFixedSize(500, 200)
 
         self.status = QLabel('No device connected')
+
+        self.ic_info_toggle = QCheckBox('Fix iCloud login')
+        self.ic_info_toggle.setChecked(False)
+        self.ic_info_toggle.stateChanged.connect(self._on_ic_info_toggled)
+
         self.activate = QPushButton('Activate Device')
         self.activate.setEnabled(False)
 
         layout = QVBoxLayout()
         layout.addWidget(self.status)
+        layout.addWidget(self.ic_info_toggle)
         layout.addWidget(self.activate)
 
         container = QWidget()
@@ -177,6 +213,14 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll_device)
         self.timer.start(1000)
+
+    def _on_ic_info_toggled(self, state):
+        if state:
+            QMessageBox.warning(
+                self,
+                'Fix iCloud Login',
+                'Warning: This feature relies on non-free software and exposes unique device information to a third-party server. Proceed with caution.'
+            )
 
     def poll_device(self):
         try:
@@ -215,7 +259,7 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         self.activate.setEnabled(False)
 
-        self.worker = ActivationThread()
+        self.worker = ActivationThread(write_ic_info=self.ic_info_toggle.isChecked())
         self.worker.status.connect(self.status.setText)
         self.worker.success.connect(self.on_success)
         self.worker.error.connect(self.on_error)

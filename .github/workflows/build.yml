@@ -2,9 +2,7 @@ name: Build hacktiv8
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ "testing" ]
 
 jobs:
   build:
