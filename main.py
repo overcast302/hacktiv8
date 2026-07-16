@@ -43,7 +43,10 @@ SUPPORTED = {
 
     'iPad3,4': {'10.3.3', '10.3.4'},
     'iPad3,5': {'10.3.3', '10.3.4'},
-    'iPad3,6': {'10.3.3', '10.3.4'}
+    'iPad3,6': {'10.3.3', '10.3.4'},
+
+    'iPhone6,1': {'10.3.3'},
+    'iPhone6,2': {'10.3.3'}
 }
 
 # pyinstaller resource path fix
@@ -157,7 +160,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle('hacktiv8 v1.1.0')
+        self.setWindowTitle('hacktiv8 v1.1.1')
         self.setFixedSize(500, 200)
 
         self.status = QLabel('No device connected')
