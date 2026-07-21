@@ -1,0 +1,106 @@
+altgraph==0.17.5
+annotated-doc==0.0.4
+annotated-types==0.7.0
+ansicon==1.89.0 ; sys_platform == 'win32'
+anyio==4.14.2
+apple-compress==0.2.3 ; sys_platform == 'darwin'
+arrow==1.4.0
+asn1==2.8.0
+asttokens==3.0.2
+blessed==1.47.0
+bpylist2==4.1.1
+certifi==2026.6.17
+cffi==2.1.0 ; platform_python_implementation != 'PyPy'
+charset-normalizer==3.4.9
+click==8.4.2
+colorama==0.4.6 ; sys_platform == 'win32'
+coloredlogs==15.0.1
+construct==2.10.70
+construct-typing==0.7.0
+cryptography==46.0.6
+daemonize==2.5.0
+decorator==5.3.1
+developer-disk-image==0.2.0
+editor==1.8.0
+enum-compat==0.0.3
+executing==2.2.1
+fastapi==0.139.2
+gpxpy==1.6.2
+h11==0.16.0
+hexdump==3.3
+humanfriendly==10.0
+hyperframe==6.1.0
+idna==3.18
+ifaddr==0.2.0
+inquirer3==0.6.1
+ipsw-parser==1.7.3
+ipython==9.15.0
+ipython-pygments-lexers==1.1.1
+jedi==0.20.0
+jinxed==2.1.0
+loguru==0.7.3 ; sys_platform == 'darwin'
+lzfse==0.4.2 ; sys_platform != 'darwin'
+macholib==1.16.4 ; sys_platform == 'darwin'
+markdown-it-py==4.2.0
+matplotlib-inline==0.2.2
+mdurl==0.1.2
+nest-asyncio==1.6.0
+opack2==0.0.1
+packaging==26.2
+parameter-decorators==0.0.2
+parso==0.8.7
+pefile==2024.8.26 ; sys_platform == 'win32'
+pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+pillow==12.3.0
+plumbum==2.0.1
+prompt-toolkit==3.0.52
+psutil==7.2.2
+ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+pure-eval==0.2.3
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycrashreport==2.0.0
+pycryptodome==3.23.0
+pydantic==2.13.4
+pydantic-core==2.46.4
+pygments==2.20.0
+pygnuutils==0.1.1
+pyimg4==0.8.8
+pyinstaller==6.21.0
+pyinstaller-hooks-contrib==2026.6
+pykdebugparser==1.2.8
+pylzss==0.3.4
+pymobiledevice3==7.8.3
+pyqt5==5.15.11
+pyreadline3==3.5.6 ; sys_platform == 'win32'
+python-dateutil==2.9.0.post0
+python-pcapng==2.1.1
+pytun-pmd3==3.0.3
+pyusb==1.3.1
+pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
+qh3==1.9.4
+readchar==4.2.2
+remotezip2==0.0.2
+requests==2.34.2
+rich==15.0.0
+runs==1.3.0
+setuptools==83.0.0
+shellingham==1.5.4
+six==1.17.0
+srptools==1.0.1
+sslpsk-pmd3==1.0.3 ; python_full_version < '3.13'
+stack-data==0.6.3
+starlette==1.3.1
+termcolor==3.3.0
+tqdm==4.69.0
+traitlets==5.15.1
+typer==0.27.0
+typer-injector==0.3.0
+typing-extensions==4.16.0
+typing-inspection==0.4.2
+tzdata==2026.3
+urllib3==2.7.0
+uvicorn==0.51.0
+wcwidth==0.8.2
+wsproto==1.3.2
+xmod==1.10.0
+xonsh==0.24.0

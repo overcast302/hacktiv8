@@ -32,7 +32,7 @@ jobs:
         python-version: '3.11'
 
     - name: Install Dependencies
-      run: pip install PyQt5 pymobiledevice3==7.8.3 cryptography==46.0.6 pyinstaller
+      run: pip install -r requirements.txt
 
     - name: Install DMG Creator
       if: runner.os == 'macOS'
