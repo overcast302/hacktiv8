@@ -1,4 +1,7 @@
+import ssl
+import subprocess
 import sys
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QDialog,
@@ -9,12 +12,18 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QSettings, Qt, QThread, pyqtSignal, QTimer
 
 from pymobiledevice3.lockdown import create_using_usbmux
+from pymobiledevice3.usbmux import list_devices
+from pymobiledevice3.common import get_home_folder
+from pymobiledevice3.osu.os_utils import get_os_utils
 
 from exploits import get_exploit
 from exploits.common import parse_version
 from exploits.itunesstored.itunesstored import (
     DEFAULT_ATTEMPTS, DEFAULT_BACKEND_URL, ItunesstoredExploit
 )
+
+
+OSUTILS = get_os_utils()
 
 
 def load_settings():
@@ -111,6 +120,10 @@ class MainWindow(QMainWindow):
         self.activate = QPushButton('Activate Device')
         self.activate.setEnabled(False)
 
+        self.rescan = QPushButton('Rescan')
+        self.rescan.setToolTip('Delete the old pairing record and reconnect')
+        self.rescan.clicked.connect(self.rescan_device)
+
         self.settings_btn = QPushButton('\u2699')
         self.settings_btn.setFixedWidth(36)
         self.settings_btn.setToolTip('Settings')
@@ -119,6 +132,7 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         row.setSpacing(4)
         row.addWidget(self.activate)
+        row.addWidget(self.rescan)
         row.addWidget(self.settings_btn)
 
         layout = QVBoxLayout()
@@ -135,7 +149,80 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.poll_device)
         self.timer.start(1000)
 
+    def rescan_device(self):
+        udid = self._connected_udid()
+        if udid is None:
+            self._set_state('No device connected', False)
+            return
+
+        self.status.setText('Clearing old pairing record...')
+        QApplication.processEvents()
+
+        removed, failed = self.clear_pairing(udid)
+        if failed:
+            self._set_state(
+                'Cannot delete system pairing record. Run hacktiv8 as Administrator.',
+                False)
+            return
+
+        self._restart_amds()
+        self.poll_device()
+
+    def _connected_udid(self):
+        try:
+            devices = list_devices()
+        except Exception:
+            return None
+        return devices[0].serial if devices else None
+
+    @staticmethod
+    def _pairing_record_paths(udid):
+        paths = []
+        try:
+            paths.append(Path(OSUTILS.pair_record_path) / f'{udid}.plist')
+        except Exception:
+            pass
+        try:
+            paths.append(get_home_folder() / f'{udid}.plist')
+        except Exception:
+            pass
+        return paths
+
+    def clear_pairing(self, udid):
+        removed, failed = [], []
+        for path in self._pairing_record_paths(udid):
+            if not path.exists():
+                continue
+            try:
+                path.unlink()
+                removed.append(str(path))
+            except PermissionError:
+                failed.append(str(path))
+        return removed, failed
+
+    @staticmethod
+    def _restart_amds():
+        if sys.platform != 'win32':
+            return
+        for action in ('stop', 'start'):
+            try:
+                subprocess.run(
+                    ['net', action, 'Apple Mobile Device Service'],
+                    capture_output=True, timeout=30)
+            except Exception:
+                pass
+
     def poll_device(self):
+        # Distinguish "nothing plugged in" from "plugged in but handshake failed".
+        try:
+            devices = list_devices()
+        except Exception:
+            devices = []
+
+        if not devices:
+            self._set_state('No device connected', False)
+            return
+
         try:
             lockdown = create_using_usbmux()
             values = lockdown.get_value()
@@ -145,8 +232,11 @@ class MainWindow(QMainWindow):
             build = values.get('BuildVersion')
             version_tuple = parse_version(version)
             exploit_cls = get_exploit(version_tuple, lockdown.udid)
-        except Exception:
-            self._set_state('No device connected', False)
+        except (ConnectionError, TimeoutError, ssl.SSLError):
+            self._set_state('Device connected but pairing failed. Re-pair via iTunes', False)
+            return
+        except Exception as e:
+            self._set_state(f'Device connected, but lockdown error: {e}', False)
             return
 
         if exploit_cls is None:
