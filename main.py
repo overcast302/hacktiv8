@@ -1,3 +1,4 @@
+import asyncio
 import sys
 
 from PyQt5.QtWidgets import (
@@ -73,28 +74,35 @@ class ActivationThread(QThread):
 
     def run(self):
         try:
-            lockdown = create_using_usbmux()
-            values = lockdown.get_value()
-
-            if values.get('ActivationState') == 'Activated':
-                self.success.emit('Device is already activated')
-                return
-
-            exploit_cls = get_exploit(parse_version(values.get('ProductVersion')), lockdown.udid)
-            if exploit_cls is None:
-                self.error.emit('Unsupported iOS version')
-                return
-
-            self.status.emit('Activating device...')
-            exploit_cls(log=self.status.emit, **self.settings).run(lockdown)
-            self.success.emit('Done!')
-
+            asyncio.run(self.activate())
         except TimeoutError:
             self.error.emit(
                 'Device did not reconnect in time. Please ensure it is connected and try again.'
             )
         except Exception as e:
             self.error.emit(repr(e))
+
+    async def activate(self):
+        lockdown = await create_using_usbmux()
+        try:
+            values = await lockdown.get_value()
+
+            if values.get('ActivationState') == 'Activated':
+                self.success.emit('Device is already activated')
+                return
+
+            exploit_cls = await get_exploit(
+                parse_version(values.get('ProductVersion')), lockdown.udid
+            )
+            if exploit_cls is None:
+                self.error.emit('Unsupported iOS version')
+                return
+
+            self.status.emit('Activating device...')
+            await exploit_cls(log=self.status.emit, **self.settings).run(lockdown)
+            self.success.emit('Done!')
+        finally:
+            await lockdown.close()
 
 
 class MainWindow(QMainWindow):
@@ -136,15 +144,22 @@ class MainWindow(QMainWindow):
         self.timer.start(1000)
 
     def poll_device(self):
-        try:
-            lockdown = create_using_usbmux()
-            values = lockdown.get_value()
+        async def detect():
+            lockdown = await create_using_usbmux()
+            try:
+                values = await lockdown.get_value()
 
-            product = values.get('ProductType')
-            version = values.get('ProductVersion')
-            build = values.get('BuildVersion')
-            version_tuple = parse_version(version)
-            exploit_cls = get_exploit(version_tuple, lockdown.udid)
+                product = values.get('ProductType')
+                version = values.get('ProductVersion')
+                build = values.get('BuildVersion')
+                version_tuple = parse_version(version)
+                exploit_cls = await get_exploit(version_tuple, lockdown.udid)
+                return product, version, build, version_tuple, exploit_cls, lockdown.udid
+            finally:
+                await lockdown.close()
+
+        try:
+            product, version, build, version_tuple, exploit_cls, udid = asyncio.run(detect())
         except Exception:
             self._set_state('No device connected', False)
             return
@@ -154,7 +169,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            supported = exploit_cls.available(product, build, lockdown.udid, **self.settings)
+            supported = asyncio.run(exploit_cls.available(product, build, udid, **self.settings))
         except Exception:
             self._set_state('Could not reach backend. Please check your internet connection!', False)
             return
